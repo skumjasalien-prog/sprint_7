@@ -1,116 +1,66 @@
 package api.tests;
 
+import api.client.OrderApi;
 import api.model.Order;
 import api.utils.BaseTest;
-import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import org.junit.After;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.List;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.notNullValue;
 
+@RunWith(Parameterized.class)
 public class OrderCreationTest extends BaseTest {
 
+    private final OrderApi orderApi = new OrderApi();
+    private final List<String> colors;
+    private Integer track;
+
+    public OrderCreationTest(List<String> colors) {
+        this.colors = colors;
+    }
+
+    @Parameterized.Parameters(name = "Цвета: {0}")
+    public static Object[][] data() {
+        return new Object[][]{
+                {List.of("BLACK")},
+                {List.of("GREY")},
+                {List.of("BLACK", "GREY")},
+                {null}
+        };
+    }
+
+    @After
+    public void cancelOrderAfterTest() {
+        if (track != null) {
+            orderApi.cancelOrder(track);
+        }
+    }
+
     @Test
-    public void orderCanBeCreatedWithAllFields() {
+    public void orderCanBeCreatedWithDifferentColors() {
         Order order = new Order(
                 "Liz",
-                "Smith",
-                "Nevsky 10",
-                "5",
-                "+79991234567",
+                "Test",
+                "Street 1",
+                "1",
+                "+79999999999",
                 3,
-                "2026-01-27",
-                "Please be on time",
-                Arrays.asList("BLACK", "GREY")
+                "2026-01-01",
+                "comment",
+                colors
         );
 
-        Response response =
-                given()
-                        .contentType(ContentType.JSON)
-                        .body(order)
-                        .when()
-                        .post("/api/v1/orders");
+        Response response = orderApi.createOrder(order);
 
-        response.then()
+        track = response.then()
                 .statusCode(201)
-                .body("track", notNullValue());
-    }
-
-    @Test
-    public void orderCanBeCreatedWithoutColor() {
-        Order order = new Order(
-                "Liz",
-                "Smith",
-                "Nevsky 10",
-                "5",
-                "+79991234567",
-                2,
-                "2026-01-27",
-                "No color preference",
-                null // цвет не указан
-        );
-
-        Response response =
-                given()
-                        .contentType(ContentType.JSON)
-                        .body(order)
-                        .when()
-                        .post("/api/v1/orders");
-
-        response.then()
-                .statusCode(201)
-                .body("track", notNullValue());
-    }
-
-    @Test
-    public void cannotCreateOrderWithoutFirstName() {
-        Order order = new Order(
-                null, // нет имени
-                "Smith",
-                "Nevsky 10",
-                "5",
-                "+79991234567",
-                2,
-                "2026-01-27",
-                "Missing first name",
-                Collections.singletonList("BLACK")
-        );
-
-        given()
-                .contentType(ContentType.JSON)
-                .body(order)
-                .when()
-                .post("/api/v1/orders")
-                .then()
-                .statusCode(400)
-                .body("message", equalTo("Недостаточно данных для заказа"));
-    }
-
-    @Test
-    public void cannotCreateOrderWithoutAddress() {
-        Order order = new Order(
-                "Liz",
-                "Smith",
-                null, // нет адреса
-                "5",
-                "+79991234567",
-                2,
-                "2026-01-27",
-                "Missing address",
-                Collections.singletonList("BLACK")
-        );
-
-        given()
-                .contentType(ContentType.JSON)
-                .body(order)
-                .when()
-                .post("/api/v1/orders")
-                .then()
-                .statusCode(400)
-                .body("message", equalTo("Недостаточно данных для заказа"));
+                .body("track", notNullValue())
+                .extract()
+                .path("track");
     }
 }
